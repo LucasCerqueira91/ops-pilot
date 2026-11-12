@@ -56,7 +56,7 @@ const defaultAgentFactory: AgentFactory = (model, tools) => {
     llm: model,
     tools,
     prompt:
-      "You are OpsPilot, an operations assistant. Use only the available tools for operational changes. Do not reveal private reasoning or credentials. Give a concise final answer.",
+      "You are OpsPilot, an operations assistant. Use only the available tools for operational changes. Do not reveal private reasoning or credentials. Answer in the user's language. For alert-count questions, state the count and list each matching alert as [id] service | severity | title. Give a concise final answer.",
   });
   return {
     stream: async (input, config) =>
@@ -112,6 +112,11 @@ export function createReactStrategy(
       const answer = answerMessage
         ? sanitizeTraceText(contentToText(answerMessage.content))
         : "Iteration limit reached; partial result available in the trace.";
+      if (answerMessage && !answer.trim()) {
+        throw new Error(
+          "OpenRouter returned an empty response. Check the configured model and provider status.",
+        );
+      }
       if (!trace.some((event) => event.type === "answer")) {
         trace.push({ type: "answer", content: answer });
       }

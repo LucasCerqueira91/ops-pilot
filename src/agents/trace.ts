@@ -19,7 +19,7 @@ export type TraceEvent =
   | { type: "thought"; summary: string }
   | { type: "action"; tool: PlannedToolStep["tool"]; args: Record<string, unknown> }
   | { type: "observation"; tool: PlannedToolStep["tool"]; result: string }
-  | { type: "plan"; steps: PlannedToolStep[] }
+  | { type: "plan"; steps: string[] }
   | { type: "critique"; summary: string }
   | { type: "answer"; content: string };
 

@@ -15,6 +15,12 @@ test("the fresh store has the documented fixture and filters alerts", async () =
   assert.equal(resolved.length, 3);
   assert.ok(firing.every((alert) => alert.status === "firing"));
   assert.ok(resolved.every((alert) => alert.status === "resolved"));
+  assert.deepEqual(
+    firing
+      .filter((alert) => alert.severity === "critical")
+      .map((alert) => alert.id),
+    ["alert-001", "alert-003"],
+  );
 });
 
 test("incident creation and resolution preserve domain invariants", async () => {
@@ -24,7 +30,7 @@ test("incident creation and resolution preserve domain invariants", async () => 
   });
   const incident = await store.createIncident({
     title: "Elevated latency",
-    serviceId: "api-gateway",
+    serviceId: "payment-api",
     severity: "high",
   });
 
@@ -44,7 +50,7 @@ test("invalid inputs and unknown IDs fail without mutating state", async () => {
   await assert.rejects(
     store.createIncident({
       title: " ",
-      serviceId: "api-gateway",
+      serviceId: "payment-api",
       severity: "high",
     }),
     /title/i,
@@ -74,7 +80,7 @@ test("fixture definitions are immutable and can be copied into independent store
   const second = new MemoryOperationsStore();
   const incident = await first.createIncident({
     title: "Isolated incident",
-    serviceId: "api-gateway",
+    serviceId: "payment-api",
     severity: "low",
   });
 

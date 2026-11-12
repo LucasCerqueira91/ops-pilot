@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-11
 
-**Status**: Draft
+**Status**: Implementation update approved by user (2026-11-12)
 
 **Input**: User description: "Núcleo de raciocínio do OpsPilot com estratégias ReAct e Plan-and-Execute, ferramentas para alertas e incidentes, arena para comparar estratégias e testes determinísticos sem rede."
 
@@ -34,6 +34,9 @@ métricas próprias.
 3. **Given** um limite de iterações configurado, **When** uma estratégia
    alcança esse limite, **Then** ela encerra sem excedê-lo e informa o
    resultado obtido até então.
+4. **Given** credenciais OpenRouter válidas no arquivo local de ambiente,
+   **When** a arena é iniciada pelo comando do projeto, **Then** a configuração
+   é carregada sem exigir exportação manual de variáveis.
 
 ### User Story 2 - Inspecionar ações e resultados do agente (Priority: P1)
 
@@ -85,7 +88,12 @@ rede.
 5. **Given** a suíte de testes do store e do trace, **When** ela é executada,
    **Then** os resultados são determinísticos e não exigem acesso à rede.
 6. **Given** dados alterados durante uma execução, **When** o comando de seed é
-   executado novamente, **Then** os dados retornam ao conjunto inicial definido.
+   executado novamente, **Then** os dados existentes são validados e
+   preservados sem duplicação ou redefinição.
+7. **Given** os três alertas firing do conjunto inicial, **When** a solicitação
+   pergunta quantos alertas críticos estão disparando, **Then** a resposta
+   identifica exatamente dois (`alert-001` e `alert-003`) e apresenta cada
+   identificador, serviço, severidade e título.
 
 ### Edge Cases
 
@@ -99,8 +107,16 @@ rede.
   que o item não foi encontrado e preserva o estado.
 - Se o limite de iterações for atingido antes da conclusão, a estratégia encerra
   e retorna os eventos e a resposta disponíveis, sem exceder o limite.
-- Se a geração do plano produzir mais de oito passos, o plano é limitado a
-  oito antes da execução.
+- Se o arquivo `.env` não existir ou não contiver as configurações obrigatórias,
+  a arena informa quais variáveis precisam ser definidas e não chama o modelo.
+- Se o modelo retornar uma resposta final vazia, a arena informa a falha do
+  provedor em vez de apresentar uma resposta vazia como sucesso.
+- Se a geração do plano produzir mais de oito passos, somente os oito
+  primeiros poderão ser executados.
+- Se a geração ou o ajuste do plano produzir mais passos que o orçamento
+  restante, apenas os passos que cabem no limite total de oito serão executados.
+- Se o seed for executado depois que a base JSON já existir, registros e
+  alterações operacionais existentes serão preservados.
 
 ## Requirements *(mandatory)*
 
@@ -118,9 +134,12 @@ rede.
   e resolver incidentes, e MUST registrar no trace o ciclo de ações e
   observações.
 - **FR-006**: A estratégia Plan-and-Execute MUST criar um plano estruturado,
-  executar um passo por vez e revisar os passos restantes após cada execução.
+  com passos curtos em texto, executar um passo por vez por meio das
+  ferramentas disponíveis e revisar os passos restantes após cada execução.
 - **FR-007**: A estratégia Plan-and-Execute MUST encerrar quando não houver
-  passos restantes e MUST limitar cada plano a no máximo oito passos.
+  passos restantes e MUST limitar a no máximo oito o total de passos
+  executados durante uma execução. O replanner decide se ajusta o plano,
+  continua com os passos restantes ou encerra.
 - **FR-008**: Toda estratégia MUST respeitar o limite de iterações recebido e
   contabilizar todas as chamadas ao modelo que realizar, incluindo planejamento
   e replanejamento.
@@ -138,7 +157,8 @@ rede.
   inválidas MUST ser rejeitadas sem modificar o estado.
 - **FR-013**: O estado inicial MUST conter cinco serviços e seis alertas,
   variados entre esses serviços e com exatamente três firing e três resolved.
-  Deve haver um comando local repetível de seed que restaure esse estado inicial.
+  Deve haver um comando local repetível de seed que valide e inicialize uma
+  base JSON local quando ausente, preservando registros operacionais já salvos.
 - **FR-014**: Os testes do store e da formatação do trace MUST ser determinísticos
   e executáveis sem chamadas de rede.
 - **FR-015**: A arena MUST rejeitar uma seleção vazia ou estratégias
@@ -147,9 +167,26 @@ rede.
 - **FR-016**: Uma operação sobre serviço, alerta ou incidente inexistente MUST
   retornar um erro compreensível e MUST NOT alterar o estado.
 - **FR-017**: Todas as estratégias MUST usar a mesma configuração de modelo,
-  carregada de `OPENROUTER_API_KEY` e `OPENROUTER_MODEL`, com o endpoint
+  carregada de `OPENROUTER_API_KEY` e `OPENROUTER_MODEL` do ambiente do
+  processo, incluindo um arquivo local `.env` quando presente, com o endpoint
   gratuito NVIDIA indicado e temperatura zero; credenciais MUST NOT aparecer
   nos traces ou resultados.
+- **FR-018**: Durante o desenvolvimento, a base operacional MUST ser um único
+  arquivo JSON local com serviços, alertas e incidentes. Ferramentas devem ler
+  os registros existentes e persistir operações válidas nesse arquivo; testes
+  determinísticos devem poder usar caminhos isolados e não alterar a base local.
+- **FR-019**: O comando local da arena MUST carregar variáveis de um arquivo
+  `.env` presente usando suporte nativo do Node.js, sem dependência adicional;
+  se as variáveis obrigatórias estiverem ausentes ou vazias, MUST informar
+  claramente os nomes necessários antes de iniciar uma chamada ao modelo.
+- **FR-020**: Uma resposta final vazia do provedor MUST ser apresentada como
+  erro explícito, nunca como conclusão bem-sucedida da solicitação.
+- **FR-021**: A resposta de `list_alerts` MUST apresentar a quantidade e, para
+  cada alerta, seu identificador, serviço, severidade e título em formato
+  legível pelo operador.
+- **FR-022**: Para perguntas de contagem, a resposta final MUST incluir o total
+  e listar cada alerta correspondente no formato `[id] serviço | severidade |
+  título`, no idioma da solicitação.
 
 ### Key Entities
 
@@ -173,14 +210,20 @@ rede.
   selecionada apresenta sua resposta, trace e métricas separadamente.
 - **SC-002**: 100% dos eventos de trace exibidos usam um dos seis tipos
   definidos; toda ação exibe ferramenta e argumentos.
-- **SC-003**: Nenhum plano contém mais de oito passos, e todos os ciclos de
-  planejamento terminam quando não há passos restantes ou ao alcançar o
-  limite configurado.
-- **SC-004**: A inicialização dos dados produz exatamente cinco serviços e
-  seis alertas, com a distribuição de três firing e três resolved, em 100%
-  das execuções de seed.
+- **SC-003**: Plan-and-Execute executa no máximo oito ferramentas por execução,
+  inclusive quando o replanner adiciona ou ajusta passos.
+- **SC-004**: A primeira inicialização do JSON produz cinco serviços e seis
+  alertas, com a distribuição de três firing e três resolved; execuções de seed
+  subsequentes preservam os registros operacionais existentes.
 - **SC-005**: Os testes do store e do trace passam sem acesso à rede e produzem
   os mesmos resultados em execuções repetidas.
+- **SC-006**: Com as duas variáveis OpenRouter configuradas no arquivo local de
+  ambiente, a arena pode ser iniciada sem exportação manual, e nenhum segredo
+  aparece na saída.
+- **SC-007**: Uma resposta final vazia do modelo produz um erro acionável, não
+  uma saída de sucesso sem conteúdo.
+- **SC-008**: No conjunto inicial, uma consulta de alertas críticos firing
+  identifica exatamente `alert-001` e `alert-003`.
 
 ## Assumptions
 
@@ -190,11 +233,12 @@ rede.
   se `--max-iterations` não for informado, aplica-se o limite padrão definido
   durante o planejamento.
 - O parâmetro `--max-iterations` limita os ciclos de decisão de cada
-  estratégia; o limite específico de oito passos do plano também se aplica.
-- O conjunto de dados mock usado pelas ferramentas é local e mantido em
-  memória; executar o seed restaura o estado inicial em vez de depender de
-  dados remotos. O banco persistente do projeto permanece sujeito à
-  constituição.
+  estratégia; Plan-and-Execute também aplica o teto absoluto de oito ações
+  executadas.
+- O arquivo JSON versionado contém o seed inicial e serve como base local
+  operacional até que a persistência MySQL seja retomada. O comando de seed
+  inicializa o arquivo somente quando ele está ausente e não apaga alterações
+  existentes.
 - O identificador do serviço deve corresponder a um dos serviços semeados;
   severidades válidas serão definidas no planejamento.
 - A solicitação da arena é texto fornecido pela pessoa usuária na linha de

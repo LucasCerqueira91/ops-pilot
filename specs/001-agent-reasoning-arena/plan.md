@@ -8,22 +8,27 @@
 
 Deliver a CLI arena that compares ReAct and Plan-and-Execute against the same
 operational request, returning typed traces and per-run metrics. A shared
-Zod-validated tool contract will operate through a store interface. The arena
-and deterministic tests use an explicitly seeded in-memory adapter; the
-Sequelize/MySQL adapter and repeatable seed command provide persistent storage.
-All model clients are created by one OpenRouter-backed factory.
+Zod-validated tool contract operates through a store interface. The committed
+JSON operations file is the current local source of truth; tests use isolated
+in-memory stores seeded from the same JSON fixture. Sequelize/MySQL remains a
+future adapter, not a prerequisite for the current seed or arena. All model
+clients are created by one OpenRouter-backed factory. The arena launcher uses
+Node.js native optional `.env` loading so local credentials are available
+without an extra dependency or manual shell exports.
 
 ## Technical Context
 
 **Language/Version**: TypeScript ESM, strict mode; Node.js 22 LTS.
 
 **Primary Dependencies**: Existing `@langchain/core`, `@langchain/langgraph`,
-`@langchain/openai`, Zod, Sequelize 6 and mysql driver. No dotenv or additional
-runtime dependency is required.
+`@langchain/openai`, Zod, Node.js filesystem APIs and the existing Sequelize 6
+adapter. No dotenv or additional runtime dependency is required; Node's
+`--env-file-if-exists` option loads the local arena configuration.
 
-**Storage**: `OperationsStore` port with an in-memory implementation for the
-mock arena and tests, plus a Sequelize/MySQL implementation for persistence
-and seeding.
+**Storage**: `OperationsStore` port with a JSON-file implementation for local
+operations and an in-memory implementation for isolated deterministic tests.
+The existing Sequelize/MySQL adapter is deferred and is not used by the
+current seed command.
 
 **Testing**: `node:test` through `tsx`; `npm run test` discovers
 `src/**/*.test.ts`. Store and trace-format tests use no network or MySQL.
@@ -38,12 +43,16 @@ this feature.
 strategy in milliseconds and count logical model invocations.
 
 **Constraints**: Exactly five seeded services and six alerts (three firing,
-three resolved); at most eight planning steps; positive iteration budget;
-temperature zero; no secrets in traces; model/network calls excluded from
-deterministic tests.
+three resolved, two critical among firing); at most eight executed
+Plan-and-Execute actions total;
+positive iteration budget; temperature zero; no secrets in traces;
+model/network calls excluded from deterministic tests; required OpenRouter
+values are loaded from the process environment or optional local `.env`;
+empty final model responses are reported explicitly; alert-list tool results
+include a readable count and identifier/service/severity/title rows.
 
 **Scale/Scope**: Single arena invocation, two strategies, five services, six
-seed alerts, and a maximum of eight plan steps.
+seed alerts, and a maximum of eight executed Plan-and-Execute tool steps.
 
 ## Constitution Check
 
@@ -52,8 +61,8 @@ seed alerts, and a maximum of eight plan steps.
 - **Agent-first**: Both strategies are LangGraph executions backed by the
   shared OpenRouter model factory.
 - **Layer direction**: CLI/controller → agent → Zod tools/services → store.
-  Sequelize models implement persistence; the arena uses the same store port
-  with its isolated memory adapter.
+  JSON and memory stores implement the same persistence boundary; Sequelize
+  remains a deferred adapter.
 - **MVC**: Persistence entities live in Models, the CLI orchestration in
   Controllers, and trace rendering in Views.
 - **Validation**: Zod validates CLI options, model configuration, tool inputs,
@@ -119,6 +128,9 @@ src/
 │   ├── memory-store.ts
 │   ├── sequelize-store.ts
 │   ├── database.ts
+│   ├── json-store.ts
+│   ├── json-store.test.ts
+│   ├── seed-data.json
 │   ├── seed-data.ts
 │   ├── seed.ts
 │   ├── operations-store.test.ts
@@ -136,8 +148,9 @@ conventional MVC folders for controllers, views, and Sequelize models, a domain
 service, and store adapters behind a single operations-store contract. Add
 `npm run seed` for `src/store/seed.ts`. Tests remain under `src/` to match the
 existing npm test glob.
-`src/store/seed-data.ts` is the canonical fixture used by both adapters;
-`src/store/seed.ts` is the repeatable MySQL seed entry point.
+`src/store/seed-data.json` is the canonical fixture and local JSON database.
+`src/store/seed.ts` validates and initializes it without overwriting existing
+operations. The in-memory adapter loads independent copies of this fixture.
 
 ## Phase 0: Research
 
@@ -147,8 +160,9 @@ Key findings:
 - Keep the requested prebuilt LangGraph ReAct API for this feature; its current
   API is deprecated in favor of `langchain`'s newer agent API, so isolate it
   behind `ReasoningStrategy` and record that migration as future work.
-- Use a custom `StateGraph` for Plan-and-Execute, with structured Zod output
-  and one tool execution per plan step.
+- Use a custom `StateGraph` for Plan-and-Execute: text-only plans, a structured
+  tool executor, and a replanner with adjust/continue/finish decisions. Enforce
+  an eight-action total budget across the entire graph run.
 - Use the OpenRouter API base URL with a NVIDIA free model ID. The researched
   free model supports tools, structured output, and temperature; validate
   structured results with Zod regardless of provider enforcement.
@@ -157,8 +171,8 @@ Key findings:
   For the two-node prebuilt ReAct loop, derive the recursion ceiling as
   `2 * maxIterations + 1` (allowing the final model turn after the last action)
   and return the trace accumulated when the ceiling is reached.
-- Use an idempotent Sequelize seed scoped to stable fixture identifiers; never
-  truncate arbitrary application tables.
+- Use a Zod-validated JSON operations file for local persistence; the seed
+  command initializes only a missing file and preserves existing operations.
 
 All design questions are resolved.
 
@@ -174,22 +188,23 @@ All design questions are resolved.
   defaults, and output/error behavior.
 - [quickstart.md](./quickstart.md) defines local validation and seed scenarios.
 
-The arena creates an independently seeded in-memory store per strategy so
-comparison order cannot leak state between runs. The Sequelize adapter and
-seed command are separate persistent-storage paths. No HTTP API is introduced.
+The tests create an independently seeded in-memory store per strategy.
+Production local operations use the JSON file; the MySQL adapter remains
+available for future activation but is not part of the current run path.
+No HTTP API is introduced.
 
 ## Constitution Check (post-design)
 
 *Gate after Phase 1: PASS.*
 
 - The concrete structure preserves Agent-First flow and MVC roles.
-- Both store adapters implement the same persistence boundary; agent tools
-  never import HTTP or Sequelize models directly.
+- The JSON and memory stores implement the same persistence boundary; agent
+  tools never import HTTP or Sequelize models directly.
 - External inputs and LLM-produced plans are Zod-validated.
 - Tests require no network; live model execution is a separate manual
   quickstart scenario.
-- The seed command uses stable fixture keys and transactions, and does not
-  destructively reset unrelated rows.
+- The seed command validates and initializes the JSON database only when it is
+  missing; it does not overwrite unrelated or user-created records.
 - No extra project, runtime dependency, or constitution exception is required.
 
 ## Complexity Tracking

@@ -129,3 +129,31 @@ test("returns the partial trace when the graph recursion safety limit is reached
     ["action", "answer"],
   );
 });
+
+test("reports an empty final model response instead of returning a blank answer", async () => {
+  const strategy = createReactStrategy({
+    modelFactory: () =>
+      new ChatOpenAI({
+        model: "test-model",
+        apiKey: "test-key-not-for-network-use",
+      }),
+    agentFactory: () => ({
+      async *stream() {
+        yield {
+          messages: [
+            new HumanMessage("count critical alerts"),
+            new AIMessage(""),
+          ],
+        };
+      },
+    }),
+  });
+
+  await assert.rejects(
+    strategy.run({
+      prompt: "count critical alerts",
+      maxIterations: 1,
+    }),
+    /OpenRouter returned an empty response/,
+  );
+});

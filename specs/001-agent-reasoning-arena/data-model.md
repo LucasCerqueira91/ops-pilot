@@ -25,7 +25,8 @@ A service has many alerts and incidents.
 | `resolvedAt` | date/time or null | Required for resolved alerts; null while firing |
 
 Seed data contains six alerts across five services: exactly three firing and
-three resolved.
+three resolved. Of the firing alerts, exactly two are critical:
+`alert-001` on `payment-api` and `alert-003` on `order-service`.
 
 ### Incident
 
@@ -58,7 +59,7 @@ partial write.
 The discriminant `type` is one of `thought`, `action`, `observation`, `plan`,
 `critique`, or `answer`. Action events include tool name and Zod-validated
 arguments; observation events include a sanitized tool result; plan events
-contain at most eight steps. Events retain execution order.
+contain ordered textual steps. Events retain execution order.
 
 Raw hidden chain-of-thought, API keys, and environment values are never
 recorded. A thought event, when used, contains only a concise operational
@@ -66,17 +67,21 @@ summary.
 
 ### Plan step
 
-Each step identifies one allowed tool and the matching validated arguments.
-The plan has zero to eight steps. The replanner returns remaining steps and a
-completion decision after each execution; no remaining steps ends the graph.
+Each plan step is a short executable string. The executor maps it to exactly
+one allowed tool and validated arguments, executes that tool, and appends the
+step/result pair to `done`. The replanner returns `adjust`, `continue`, or
+`finish` after each execution. No more than eight steps may execute during one
+strategy run, including steps added by replan.
 
 ## Persistence and adapters
 
 - `OperationsStore` owns service, alert, and incident operations.
-- `MemoryOperationsStore` initializes from the shared immutable fixture and
-  provides a fresh copy for each arena strategy and test.
-- Sequelize models persist the same records to MySQL. Service is the parent
-  of alerts and incidents with explicit foreign keys.
-- The seed operation uses stable fixture IDs and a transaction; it updates
-  only seed-owned records and never truncates unrelated tables.
+- `JsonOperationsStore` reads and writes the local JSON database atomically.
+- `MemoryOperationsStore` initializes independent copies from the shared JSON
+  seed for deterministic tests and does not touch the persistent file.
+- The seed command validates the existing JSON database and creates it from
+  the initial fixture only when missing; it preserves existing incidents and
+  operational changes.
+- Sequelize models are retained as a deferred adapter and are not used in the
+  current local runtime.
 - Zod schemas at the store boundary validate loaded and persisted records.

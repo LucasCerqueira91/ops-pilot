@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "arena": "tsx src/arena.ts",
+    "arena": "node --env-file-if-exists=.env --import tsx src/arena.ts",
     "bench": "tsx src/bench.ts",
     "seed": "tsx src/store/seed.ts",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",

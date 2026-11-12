@@ -7,7 +7,7 @@ import type {
   StrategyResult,
 } from "../agents/strategy.js";
 import { StrategyNameSchema } from "../agents/strategy.js";
-import { MemoryOperationsStore } from "../store/memory-store.js";
+import { JsonOperationsStore } from "../store/json-store.js";
 import type { OperationsStore } from "../store/operations-store.js";
 import { formatTrace } from "../views/trace.js";
 
@@ -31,7 +31,7 @@ export interface ArenaRunResult {
 }
 
 export interface ArenaDependencies {
-  createStore: () => OperationsStore;
+  createStore: () => OperationsStore | Promise<OperationsStore>;
   createStrategy: (
     name: StrategyName,
     store: OperationsStore,
@@ -39,7 +39,7 @@ export interface ArenaDependencies {
 }
 
 const defaultDependencies: ArenaDependencies = {
-  createStore: () => new MemoryOperationsStore(),
+  createStore: () => JsonOperationsStore.open(),
   createStrategy: (name, store) =>
     name === "react"
       ? createReactStrategy({ store })
@@ -106,7 +106,7 @@ export async function executeArena(
   const results: ArenaRunResult[] = [];
 
   for (const name of options.strategies) {
-    const store = dependencies.createStore();
+    const store = await dependencies.createStore();
     const strategy = dependencies.createStrategy(name, store);
     const result = await strategy.run({
       prompt: options.prompt,

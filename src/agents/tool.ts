@@ -27,11 +27,18 @@ export function createOpsTools(store: OperationsStore) {
   const operations = new OperationsService(store);
 
   const listAlerts = tool(
-    async ({ status }) => JSON.stringify(await operations.listAlerts(status)),
+    async ({ status }) => {
+      const alerts = await operations.listAlerts(status);
+      const rows = alerts.map(
+        (alert) =>
+          `- [${alert.id}] ${alert.serviceId} | ${alert.severity} | ${alert.title}`,
+      );
+      return `Found ${alerts.length} ${status} alert(s)${rows.length ? `:\n${rows.join("\n")}` : "."}`;
+    },
     {
       name: "list_alerts",
       description:
-        "Lista alertas de monitoramento por estado (firing, resolved ou all).",
+        "Lista alertas de monitoramento por estado (firing, resolved ou all), retornando a quantidade e linhas no formato [id] serviço | severidade | título.",
       schema: ListAlertsInputSchema,
     },
   );

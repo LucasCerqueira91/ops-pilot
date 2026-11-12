@@ -36,10 +36,24 @@ export class LogicalModelCallCounter extends BaseCallbackHandler {
 export function getModelConfiguration(
   environment: Record<string, string | undefined> = process.env,
 ): ModelConfiguration {
-  const values = ModelEnvironmentSchema.parse({
+  const parsed = ModelEnvironmentSchema.safeParse({
     OPENROUTER_API_KEY: environment.OPENROUTER_API_KEY,
     OPENROUTER_MODEL: environment.OPENROUTER_MODEL,
   });
+  if (!parsed.success) {
+    const requiredVariables = [
+      "OPENROUTER_API_KEY",
+      "OPENROUTER_MODEL",
+    ] as const;
+    const invalidVariables = requiredVariables.filter((variable) =>
+      parsed.error.issues.some((issue) => issue.path[0] === variable),
+    );
+    throw new Error(
+      `OpenRouter configuration is missing or blank for ${invalidVariables.join(", ")}. Set these in the process environment or local .env file.`,
+    );
+  }
+
+  const values = parsed.data;
   return {
     model: values.OPENROUTER_MODEL,
     apiKey: values.OPENROUTER_API_KEY,

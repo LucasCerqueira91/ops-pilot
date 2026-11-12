@@ -19,6 +19,17 @@ test("model configuration requires explicit environment values", () => {
   );
 });
 
+test("missing OpenRouter settings explain how to configure the local arena", () => {
+  assert.throws(
+    () =>
+      getModelConfiguration({
+        OPENROUTER_API_KEY: " ",
+        OPENROUTER_MODEL: "",
+      }),
+    /OPENROUTER_API_KEY, OPENROUTER_MODEL.*process environment or local \.env/,
+  );
+});
+
 test("the model factory uses OpenRouter and deterministic temperature", () => {
   const configuration = getModelConfiguration(validEnvironment);
   const model = createModel(validEnvironment);

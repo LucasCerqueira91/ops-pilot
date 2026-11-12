@@ -3,22 +3,19 @@
 ## Prerequisites
 
 - Node.js 22 LTS and npm dependencies installed.
-- For unit tests: no network or database is required.
-- For the MySQL seed: Sequelize's MySQL dialect requires the `mysql2` driver.
-  Install it through the package registry approved for your network.
-- For the seed command: a local development MySQL database and its connection
-  settings (`MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`,
-  `MYSQL_PASSWORD`) supplied through process environment variables.
+- For unit tests and the local JSON seed: no network or database is required.
 - For a live arena run: `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` supplied
-  through the process environment. The currently verified free NVIDIA model
-  ID is `nvidia/nemotron-3.5-super-vl:free`.
+  through the process environment or the local `.env` file. The currently
+  verified free NVIDIA model ID is `nvidia/nemotron-3.5-super-vl:free`.
 
-Do not print secrets or inspect `.env` files. Set values through the shell or
-the approved local secret manager.
+Do not print secrets or commit `.env`. The `arena` npm script loads `.env`
+using Node.js's built-in env-file support; populate it locally or use an
+approved secret manager.
 
-The project exposes the repeatable fixture command as `npm run seed`; it
-requires the MySQL environment variables above, creates missing model tables
-without dropping existing tables, and never resets unrelated rows.
+The project exposes the local JSON database initializer as `npm run seed`.
+It creates the database from the committed fixture when missing, validates an
+existing database, and never overwrites existing incidents or operational
+changes.
 
 ## Offline validation
 
@@ -34,28 +31,29 @@ network requests.
 
 ## Seed validation
 
-Configure a development database, then run:
+Run the local initializer:
 
 ```sh
 npm run seed
 ```
 
-Expected: the seed reports five services and six fixture alerts (three firing,
-three resolved). Running it again updates the same fixture rows rather than
-creating duplicates or deleting unrelated records.
+Expected: the seed reports five services and six alerts (three firing, three
+resolved) on first initialization. Repeated runs validate and preserve
+existing records rather than resetting them.
 
 ## Live strategy comparison
 
-Set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` in the shell or secret manager,
-then run:
+Set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` in the local `.env` file or
+shell, then run:
 
 ```sh
-npm run arena -- --strategies react,plan-and-execute --max-iterations 5 "list firing alerts"
+npm run arena -- "quantos alertas críticos estão disparando" --strategies react
 ```
 
-Expected: both strategies receive the same request and an isolated copy of
-the seeded state. Each prints an answer, ordered trace, logical model-call
-count, and latency. Each Plan-and-Execute plan has at most eight steps.
+Expected: ReAct uses `list_alerts` and answers that two critical alerts are
+firing, listing `alert-001` on `payment-api` and `alert-003` on `order-service`.
+It also prints the ordered trace, logical model-call count, and latency.
+Plan-and-Execute remains available and executes at most eight tool steps total.
 
 ## Boundary checks
 
@@ -63,13 +61,21 @@ count, and latency. Each Plan-and-Execute plan has at most eight steps.
   limit: the CLI rejects it before any model call.
 - Run store/trace tests with the network disabled: they still pass.
 - Check that output contains no API key or raw hidden chain-of-thought.
+- If the provider returns no final text, the arena reports an explicit
+  provider/model error instead of printing a blank successful answer.
 
 ## Validation status
 
-The offline test suite and typecheck pass. Live arena and seed smoke checks
-were attempted but stopped at their validated configuration boundaries because
-the OpenRouter and MySQL environment variables are not configured in this
-workspace. The MySQL driver is also not currently installed; the corporate npm
-registry certificate prevented adding it. Do not disable TLS validation; use
-the approved registry or ask IT for the supported package source before
-running the persistent seed.
+`npm run seed` initialized/validated the JSON database (5 services, 6 alerts,
+0 incidents) and reported that existing data was preserved. The command
+`npm run arena -- "quantos alertas críticos estão disparando" --strategies react`
+loaded the local configuration and returned:
+
+```text
+Existem 2 alertas críticos disparando:
+- [alert-001] payment-api | critical | High error rate on /checkout
+- [alert-003] order-service | critical | DB connection pool exhausted
+```
+
+All 27 tests and `npm run typecheck` passed. An empty final provider response
+is reported as an explicit error rather than a blank successful answer.

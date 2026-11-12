@@ -86,11 +86,12 @@ strategy without logging API credentials or raw hidden reasoning.
 
 **Goal**: Persist service, alert, and incident data with Sequelize/MySQL and
 provide a repeatable fixture seed while keeping the in-memory tests offline.
+This original MySQL path is retained as a deferred adapter; Phase 7 defines
+the current local JSON persistence path.
 
-**Independent Test**: Run the in-memory store tests without a database; with a
-configured development MySQL database, execute the seed twice and verify five
-services, six alerts (three firing and three resolved), no fixture duplicates,
-and no deletion of unrelated records.
+**Independent Test**: Run the isolated memory and JSON-store tests without a
+network or database; initialize the local JSON fixture repeatedly and verify
+that existing incidents are preserved.
 
 ### Tests for User Story 3
 
@@ -104,10 +105,11 @@ and no deletion of unrelated records.
 - [x] T024 [US3] Implement the Sequelize/MySQL adapter for `OperationsStore`, including filtered alert reads and transactional incident state changes, in `src/store/sequelize-store.ts` (depends on T005, T022, T023)
 - [x] T025 [US3] Implement an idempotent fixture seeder that upserts only stable service/alert IDs inside a transaction and never truncates unrelated rows in `src/store/seed.ts` (depends on T007, T021, T024)
 - [x] T026 [US3] Add Zod-validated MySQL connection configuration from process environment and ensure the seed command closes the Sequelize connection on success or failure in `src/store/database.ts` and `src/store/seed.ts` (depends on T023, T025)
-- [x] T027 [US3] Execute `npm run seed` against a configured development database and verify five services plus six alerts split three firing/three resolved; record any missing database configuration instead of substituting a success result in `src/store/seed.ts` (depends on T026)
+- [x] T027 [US3] Record that the MySQL seed smoke test is deferred because no database configuration or approved mysql2 package source is available; the active JSON seed path is covered in T035-T036.
 
-**Checkpoint**: The persistent seed is repeatable and scoped to fixture rows;
-the memory-store and trace tests remain offline.
+**Checkpoint**: The Sequelize adapter and fixture upsert remain implemented
+but deferred; the active JSON seed preserves existing data, and all store and
+trace tests run offline.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
@@ -211,8 +213,8 @@ After the tests are ready:
 
 1. Add US1 to compare both strategies and validate independently.
 2. Add US2 readable, safe trace output and validate the exact formatter output.
-3. Add US3 Sequelize persistence and repeatable MySQL seed; keep offline tests
-   independent from database availability.
+3. Keep the Sequelize/MySQL adapter deferred; use the local JSON operations
+   file for development and isolated memory stores for offline tests.
 4. Run all tests and typecheck, then follow quickstart for live model/database
    checks only when credentials and services are configured.
 
@@ -228,20 +230,62 @@ contract is stable.
 - Every task uses a checkbox, sequential task ID, applicable parallel/story
   labels, and an exact file path.
 - `[P]` appears only when the file and prerequisite graph permit parallel work.
-- The seed execution task is conditional on a configured development database;
-  its result must be reported honestly if that prerequisite is unavailable.
+- The MySQL seed smoke test is deferred; the active JSON seed is validated in
+  Phase 7 and does not require database configuration.
 - Never inspect `.env` files; use process environment configuration without
   adding dotenv.
 
 ## Execution Results
 
-- The offline suite passes (22 tests), and `npm run typecheck` passes.
-- The arena smoke check correctly rejected missing `OPENROUTER_API_KEY` and
-  `OPENROUTER_MODEL`; it did not make a network request.
-- The seed smoke check correctly rejected missing MySQL environment values; no
-  database connection was attempted. The configured-database seed remains
-  unverified.
-- Sequelize requires `mysql2`, which is not installed. Adding it was attempted
-  through npm, but the corporate registry returned
-  `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. TLS validation was not disabled; use an
-  approved registry before running the persistent seed.
+- The JSON seed reported 5 services, 6 alerts, and 0 incidents; existing data
+  was preserved. The complete suite passes 25 tests, and typecheck passes.
+- The original MySQL path is deferred; the active local seed does not require
+  mysql2 or database credentials.
+- The live arena still requires `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`;
+  deterministic tests do not make model requests.
+
+## Phase 7: JSON Operations and Replanned Plan-and-Execute
+
+- [x] T031 Update the feature spec, plan, and contracts for textual plans, the
+  adjust/continue/finish replanner, an eight-action total cap, and local JSON
+  persistence.
+- [x] T032 Add deterministic tests for planner/executor/replanner calls,
+  database snapshots, replanning choices, and the total eight-action limit in
+  `src/agents/plan-and-execute.test.ts`.
+- [x] T033 Add isolated JSON-store tests for initialization, persistence,
+  schema rejection, and seed preservation in `src/store/json-store.test.ts`.
+- [x] T034 Implement the structured text-plan/executor/replanner graph with
+  tool execution and a cumulative `done` history in `src/agents/plan-and-execute.ts`.
+- [x] T035 Move the seed fixture to `src/store/seed-data.json`; implement
+  atomic JSON operations persistence, and make `npm run seed` initialize only
+  missing data without resetting existing records.
+- [x] T036 Run the local seed command, tests, and typecheck; update quickstart
+  and record outcomes and any external prerequisites.
+
+## Phase 8: Local OpenRouter Environment Loading
+
+- [x] T037 [US1] Add tests that missing or blank OpenRouter values report both
+  required variable names and their setup source in `src/agents/model.test.ts`,
+  and that an empty final model response is rejected in
+  `src/agents/react.test.ts`.
+- [x] T038 [US1] Load an optional local `.env` file in the arena launcher using
+  Node.js native env-file support and improve the missing-configuration error
+  in `package.json` and `src/agents/model.ts`.
+- [x] T039 [US1] Document local `.env` loading and its required variables in
+  `specs/001-agent-reasoning-arena/quickstart.md` and the CLI contract.
+- [x] T040 Run the requested arena command, full tests, and typecheck; record
+  whether a live model call was possible in the quickstart.
+
+## Phase 9: Expected Critical Alert Result
+
+- [x] T041 [US1] Add tests for the two critical firing seed alerts and readable
+  `list_alerts` output in `src/store/operations-store.test.ts` and
+  `src/agents/tool.test.ts`.
+- [x] T042 [US1] Align the JSON fixture with the expected three firing alerts
+  (two critical), format alert tool results with count, ID, service, severity,
+  and title, and instruct ReAct to echo those fields in its final count answer
+  in `src/store/seed-data.json`, `src/agents/tool.ts`, and `src/agents/react.ts`.
+- [x] T043 [US1] Document the expected critical alert response and tool output
+  in the feature spec, data model, CLI/tool contracts, and quickstart.
+- [x] T044 Run the alert-count command, full tests, and typecheck; record the
+  verified response and validation results in the quickstart.

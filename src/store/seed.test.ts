@@ -9,7 +9,7 @@ test("fixture seeding is repeatable and leaves unrelated records untouched", asy
   });
   const unrelated = await store.createIncident({
     title: "Operator-created incident",
-    serviceId: "api-gateway",
+    serviceId: "payment-api",
     severity: "medium",
   });
 

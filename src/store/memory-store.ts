@@ -14,11 +14,16 @@ import {
   NotFoundError,
 } from "../services/domain-errors.js";
 import type { OperationsStore } from "./operations-store.js";
-import { createSeedData } from "./seed-data.js";
+import {
+  createSeedData,
+  type OperationsData,
+} from "./seed-data.js";
 
 export interface MemoryStoreOptions {
   clock?: () => Date;
   createId?: () => string;
+  data?: OperationsData;
+  persist?: (data: OperationsData) => Promise<void>;
 }
 
 export class MemoryOperationsStore implements OperationsStore {
@@ -27,16 +32,24 @@ export class MemoryOperationsStore implements OperationsStore {
   private readonly incidents = new Map<string, Incident>();
   private readonly clock: () => Date;
   private readonly createId: () => string;
+  private readonly persist?: (data: OperationsData) => Promise<void>;
 
   constructor(options: MemoryStoreOptions = {}) {
     this.clock = options.clock ?? (() => new Date());
     this.createId = options.createId ?? (() => crypto.randomUUID());
-    const seed = createSeedData();
+    this.persist = options.persist;
+    const seed = options.data ?? {
+      ...createSeedData(),
+      incidents: [],
+    };
     for (const service of seed.services) {
-      this.services.set(service.id, service);
+      this.services.set(service.id, copyService(service));
     }
     for (const alert of seed.alerts) {
-      this.alerts.set(alert.id, alert);
+      this.alerts.set(alert.id, copyAlert(alert));
+    }
+    for (const incident of seed.incidents) {
+      this.incidents.set(incident.id, copyIncident(incident));
     }
   }
 
@@ -70,6 +83,7 @@ export class MemoryOperationsStore implements OperationsStore {
       createdAt: this.clock(),
       resolvedAt: null,
     });
+    await this.persistSnapshot({ incidents: [...this.incidents.values(), incident] });
     this.incidents.set(incident.id, incident);
     return copyIncident(incident);
   }
@@ -85,18 +99,33 @@ export class MemoryOperationsStore implements OperationsStore {
       status: "resolved",
       resolvedAt: this.clock(),
     });
+    await this.persistSnapshot({
+      incidents: [...this.incidents.values()].map((item) =>
+        item.id === id ? resolved : item,
+      ),
+    });
     this.incidents.set(id, resolved);
     return copyIncident(resolved);
   }
 
   async upsertService(service: Service): Promise<void> {
     const validService = ServiceSchema.parse(service);
+    await this.persistSnapshot({
+      services: [...this.services.values()].filter(
+        (item) => item.id !== validService.id,
+      ).concat(validService),
+    });
     this.services.set(validService.id, copyService(validService));
   }
 
   async upsertAlert(alert: Alert): Promise<void> {
     const validAlert = AlertSchema.parse(alert);
     await this.getService(validAlert.serviceId);
+    await this.persistSnapshot({
+      alerts: [...this.alerts.values()].filter(
+        (item) => item.id !== validAlert.id,
+      ).concat(validAlert),
+    });
     this.alerts.set(validAlert.id, copyAlert(validAlert));
   }
 
@@ -113,9 +142,35 @@ export class MemoryOperationsStore implements OperationsStore {
       }
     }
 
+    await this.persistSnapshot({
+      services: mergeById(this.services, services),
+      alerts: mergeById(this.alerts, alerts),
+    });
     for (const service of services) this.services.set(service.id, copyService(service));
     for (const alert of alerts) this.alerts.set(alert.id, copyAlert(alert));
   }
+
+  private async persistSnapshot(
+    changes: Partial<OperationsData>,
+  ): Promise<void> {
+    if (!this.persist) return;
+    await this.persist({
+      services: (changes.services ?? [...this.services.values()]).map(copyService),
+      alerts: (changes.alerts ?? [...this.alerts.values()]).map(copyAlert),
+      incidents: (changes.incidents ?? [...this.incidents.values()]).map(
+        copyIncident,
+      ),
+    });
+  }
+}
+
+function mergeById<T extends { id: string }>(
+  current: Map<string, T>,
+  incoming: T[],
+): T[] {
+  const merged = new Map(current);
+  for (const item of incoming) merged.set(item.id, item);
+  return [...merged.values()];
 }
 
 function copyService(service: Service): Service {

@@ -8,12 +8,7 @@ test("formats each trace variant in order with action arguments", () => {
     { type: "thought", summary: "Consultar alertas ativos." },
     {
       type: "plan",
-      steps: [
-        {
-          tool: "list_alerts",
-          args: { status: "firing" },
-        },
-      ],
+      steps: ["List the firing alerts"],
     },
     {
       type: "action",
