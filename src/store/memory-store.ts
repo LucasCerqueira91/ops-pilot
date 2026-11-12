@@ -1,60 +1,139 @@
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
-import { AlertSchema, IncidentSchema, ServiceSchema, type Alert, type Incident, type Service } from "../models/domain.js";
-import { InvalidStateError, NotFoundError, ValidationError } from "../services/domain-errors.js";
+import {
+  AlertSchema,
+  CreateIncidentSchema,
+  IncidentSchema,
+  ServiceSchema,
+  type Alert,
+  type AlertStatus,
+  type CreateIncident,
+  type Incident,
+  type Service,
+} from "../models/domain.js";
+import {
+  InvalidStateError,
+  NotFoundError,
+} from "../services/domain-errors.js";
 import type { OperationsStore } from "./operations-store.js";
+import { createSeedData } from "./seed-data.js";
 
-export interface SeedFixture { services: Service[]; alerts: Alert[]; incidents: Incident[] }
+export interface MemoryStoreOptions {
+  clock?: () => Date;
+  createId?: () => string;
+}
 
 export class MemoryOperationsStore implements OperationsStore {
-  private services: Service[];
-  private alerts: Alert[];
-  private incidents: Incident[];
+  private readonly services = new Map<string, Service>();
+  private readonly alerts = new Map<string, Alert>();
+  private readonly incidents = new Map<string, Incident>();
+  private readonly clock: () => Date;
+  private readonly createId: () => string;
 
-  constructor(private readonly persistencePath?: string, private readonly clock: () => Date = () => new Date()) {
-    const seed = this.loadSeed();
-    this.services = seed.services.map((item) => ({ ...item }));
-    this.alerts = seed.alerts.map((item) => ({ ...item }));
-    this.incidents = seed.incidents.map((item) => ({ ...item }));
+  constructor(options: MemoryStoreOptions = {}) {
+    this.clock = options.clock ?? (() => new Date());
+    this.createId = options.createId ?? (() => crypto.randomUUID());
+    const seed = createSeedData();
+    for (const service of seed.services) {
+      this.services.set(service.id, service);
+    }
+    for (const alert of seed.alerts) {
+      this.alerts.set(alert.id, alert);
+    }
   }
 
-  private loadSeed(): SeedFixture {
-    const path = this.persistencePath ?? resolve(process.cwd(), "src/store/seed-data.json");
-    if (!existsSync(path)) throw new Error(`Seed JSON not found: ${path}`);
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as SeedFixture;
-    return {
-      services: parsed.services.map((item) => ServiceSchema.parse(item)),
-      alerts: parsed.alerts.map((item) => AlertSchema.parse(item)),
-      incidents: parsed.incidents.map((item) => IncidentSchema.parse(item)),
-    };
+  async listServices(): Promise<Service[]> {
+    return [...this.services.values()].map(copyService);
   }
 
-  private persist(): void {
-    if (!this.persistencePath) return;
-    writeFileSync(this.persistencePath, JSON.stringify({ services: this.services, alerts: this.alerts, incidents: this.incidents }, null, 2), "utf8");
+  async getService(id: string): Promise<Service> {
+    const service = this.services.get(id);
+    if (!service) throw new NotFoundError(`Service "${id}" was not found`);
+    return copyService(service);
   }
 
-  listServices(): Service[] { return this.services.map((item) => ({ ...item })); }
-  listAlerts(status: "firing" | "resolved"): Alert[] { return this.alerts.filter((item) => item.status === status).map((item) => ({ ...item })); }
-
-  openIncident(input: { title: string; serviceId: string; severity: Alert["severity"] }): Incident {
-    if (!input.title?.trim()) throw new ValidationError("Incident title is required");
-    if (!this.services.some((item) => item.id === input.serviceId)) throw new NotFoundError(`Unknown service: ${input.serviceId}`);
-    const now = this.clock().toISOString();
-    const incident = IncidentSchema.parse({ id: randomUUID(), title: input.title.trim(), serviceId: input.serviceId, severity: input.severity, status: "open", createdAt: now, resolvedAt: null });
-    this.incidents.push(incident);
-    this.persist();
-    return { ...incident };
+  async listAlerts(status: AlertStatus | "all" = "all"): Promise<Alert[]> {
+    return [...this.alerts.values()]
+      .filter((alert) => status === "all" || alert.status === status)
+      .map(copyAlert);
   }
 
-  resolveIncident(id: string): Incident {
-    const incident = this.incidents.find((item) => item.id === id);
-    if (!incident) throw new NotFoundError(`Unknown incident: ${id}`);
-    if (incident.status === "resolved") throw new InvalidStateError(`Incident ${id} is already resolved`);
-    const resolved = IncidentSchema.parse({ ...incident, status: "resolved", resolvedAt: this.clock().toISOString() });
-    this.incidents = this.incidents.map((item) => item.id === id ? resolved : item);
-    this.persist();
-    return { ...resolved };
+  async listIncidents(): Promise<Incident[]> {
+    return [...this.incidents.values()].map(copyIncident);
   }
+
+  async createIncident(input: CreateIncident): Promise<Incident> {
+    const validInput = CreateIncidentSchema.parse(input);
+    await this.getService(validInput.serviceId);
+    const incident = IncidentSchema.parse({
+      ...validInput,
+      id: this.createId(),
+      status: "open",
+      createdAt: this.clock(),
+      resolvedAt: null,
+    });
+    this.incidents.set(incident.id, incident);
+    return copyIncident(incident);
+  }
+
+  async resolveIncident(id: string): Promise<Incident> {
+    const incident = this.incidents.get(id);
+    if (!incident) throw new NotFoundError(`Incident "${id}" was not found`);
+    if (incident.status !== "open") {
+      throw new InvalidStateError(`Incident "${id}" is already resolved`);
+    }
+    const resolved = IncidentSchema.parse({
+      ...incident,
+      status: "resolved",
+      resolvedAt: this.clock(),
+    });
+    this.incidents.set(id, resolved);
+    return copyIncident(resolved);
+  }
+
+  async upsertService(service: Service): Promise<void> {
+    const validService = ServiceSchema.parse(service);
+    this.services.set(validService.id, copyService(validService));
+  }
+
+  async upsertAlert(alert: Alert): Promise<void> {
+    const validAlert = AlertSchema.parse(alert);
+    await this.getService(validAlert.serviceId);
+    this.alerts.set(validAlert.id, copyAlert(validAlert));
+  }
+
+  async upsertFixtures(data: { services: Service[]; alerts: Alert[] }): Promise<void> {
+    const services = data.services.map((service) => ServiceSchema.parse(service));
+    const alerts = data.alerts.map((alert) => AlertSchema.parse(alert));
+    const serviceIds = new Set([
+      ...this.services.keys(),
+      ...services.map((service) => service.id),
+    ]);
+    for (const alert of alerts) {
+      if (!serviceIds.has(alert.serviceId)) {
+        throw new NotFoundError(`Service "${alert.serviceId}" was not found`);
+      }
+    }
+
+    for (const service of services) this.services.set(service.id, copyService(service));
+    for (const alert of alerts) this.alerts.set(alert.id, copyAlert(alert));
+  }
+}
+
+function copyService(service: Service): Service {
+  return { ...service, createdAt: new Date(service.createdAt) };
+}
+
+function copyAlert(alert: Alert): Alert {
+  return {
+    ...alert,
+    triggeredAt: new Date(alert.triggeredAt),
+    resolvedAt: alert.resolvedAt ? new Date(alert.resolvedAt) : null,
+  };
+}
+
+function copyIncident(incident: Incident): Incident {
+  return {
+    ...incident,
+    createdAt: new Date(incident.createdAt),
+    resolvedAt: incident.resolvedAt ? new Date(incident.resolvedAt) : null,
+  };
 }

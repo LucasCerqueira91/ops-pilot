@@ -1,12 +1,32 @@
-export class DomainError extends Error {
-  constructor(message: string, public readonly code: string) { super(message); this.name = "DomainError"; }
+export abstract class DomainError extends Error {
+  abstract readonly code: string;
+
+  protected constructor(message: string) {
+    super(message);
+    this.name = new.target.name;
+  }
 }
+
 export class NotFoundError extends DomainError {
-  constructor(message: string) { super(message, "NOT_FOUND"); this.name = "NotFoundError"; }
+  readonly code = "NOT_FOUND";
+
+  constructor(message: string) {
+    super(message);
+  }
 }
-export class InvalidStateError extends DomainError {
-  constructor(message: string) { super(message, "INVALID_STATE"); this.name = "InvalidStateError"; }
-}
+
 export class ValidationError extends DomainError {
-  constructor(message: string) { super(message, "VALIDATION"); this.name = "ValidationError"; }
+  readonly code = "VALIDATION_ERROR";
+
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export class InvalidStateError extends DomainError {
+  readonly code = "INVALID_STATE";
+
+  constructor(message: string) {
+    super(message);
+  }
 }

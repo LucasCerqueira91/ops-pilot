@@ -22,15 +22,15 @@ file path and follows the checklist format.
 **Purpose**: Establish validated domain, tracing, storage, tools, and model
 configuration contracts required by all user stories.
 
-- [ ] T002 [P] Define Zod schemas in `src/models/domain.ts` enforcing Service `id` "Stable slug; primary/unique key", `name` "Required, non-empty"; Alert `id` "Stable fixture ID or generated ID; primary key", `serviceId` "Required reference to an existing service", `title` "Required, non-empty", `status` "`firing` or `resolved`", `severity` "`low`, `medium`, `high`, or `critical`", `triggeredAt` "Required", `resolvedAt` "Required for resolved alerts; null while firing"; and Incident `id` "UUID", `title` "Required, non-empty", `serviceId` "Required reference to an existing service", `severity` "`low`, `medium`, `high`, or `critical`", `status` "`open` or `resolved`; new incidents start `open`", `createdAt` "Required", `resolvedAt` "Null while open; set on resolution"
-- [ ] T003 [P] Define explicit not-found, validation, and invalid-state domain error classes in `src/services/domain-errors.ts`
-- [ ] T004 [P] Define the six discriminated trace-event types and strategy input/result/metrics types in `src/agents/trace.ts` and `src/agents/strategy.ts`
-- [ ] T005 Define the `OperationsStore` interface for services, filtered alerts, incident creation/resolution, and fixture upserts in `src/store/operations-store.ts` (depends on T002)
-- [ ] T006 Write failing deterministic tests for fixture counts, alert filtering, incident lifecycle, invalid input, and unknown IDs in `src/store/operations-store.test.ts` (depends on T002, T005)
+- [x] T002 [P] Define Zod schemas in `src/models/domain.ts` enforcing Service `id` "Stable slug; primary/unique key", `name` "Required, non-empty"; Alert `id` "Stable fixture ID or generated ID; primary key", `serviceId` "Required reference to an existing service", `title` "Required, non-empty", `status` "`firing` or `resolved`", `severity` "`low`, `medium`, `high`, or `critical`", `triggeredAt` "Required", `resolvedAt` "Required for resolved alerts; null while firing"; and Incident `id` "UUID", `title` "Required, non-empty", `serviceId` "Required reference to an existing service", `severity` "`low`, `medium`, `high`, or `critical`", `status` "`open` or `resolved`; new incidents start `open`", `createdAt` "Required", `resolvedAt` "Null while open; set on resolution"
+- [x] T003 [P] Define explicit not-found, validation, and invalid-state domain error classes in `src/services/domain-errors.ts`
+- [x] T004 [P] Define the six discriminated trace-event types and strategy input/result/metrics types in `src/agents/trace.ts` and `src/agents/strategy.ts`
+- [x] T005 Define the `OperationsStore` interface for services, filtered alerts, incident creation/resolution, and fixture upserts in `src/store/operations-store.ts` (depends on T002)
+- [x] T006 Write failing deterministic tests for fixture counts, alert filtering, incident lifecycle, invalid input, and unknown IDs in `src/store/operations-store.test.ts` (depends on T002, T005)
 - [x] T007 Implement the immutable five-service/six-alert fixture and fresh in-memory store with injectable clock/ID generation in `src/store/seed-data.ts` and `src/store/memory-store.ts` (depends on T006)
-- [ ] T008 Write failing Zod tool-schema and store-delegation tests for `list_alerts`, `open_incident`, and `resolve_incident` in `src/agents/tool.test.ts` (depends on T007)
+- [x] T008 Write failing Zod tool-schema and store-delegation tests for `list_alerts`, `open_incident`, and `resolve_incident` in `src/agents/tool.test.ts` (depends on T007)
 - [x] T009 Implement the domain operations and three validated tools using the injected `OperationsStore` in `src/services/operations.ts` and `src/agents/tool.ts` (depends on T008)
-- [ ] T010 [P] Write model-configuration tests for required environment values, OpenRouter base URL, configured model, and temperature zero without reading `.env` or making network calls in `src/agents/model.test.ts`
+- [x] T010 [P] Write model-configuration tests for required environment values, OpenRouter base URL, configured model, and temperature zero without reading `.env` or making network calls in `src/agents/model.test.ts`
 - [x] T011 Implement the single Zod-validated `ChatOpenAI` factory using `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `https://openrouter.ai/api/v1`, and temperature zero in `src/agents/model.ts` (depends on T010)
 
 **Checkpoint**: Shared contracts and tools are ready; deterministic tests need
@@ -48,13 +48,13 @@ iteration budget.
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Write deterministic ReAct tests with a fake tool-calling model for final answers, tool execution, logical LLM-call counts, and iteration exhaustion in `src/agents/react.test.ts`
-- [ ] T013 [P] [US1] Write deterministic Plan-and-Execute tests with a fake structured-output model for planning, one-step execution, replanning, completion, eight-step cap, and iteration exhaustion in `src/agents/plan-and-execute.test.ts`
-- [ ] T014 [P] [US1] Write CLI/controller tests for shared request propagation, strategy selection/defaults, positive iteration limits, and invalid arguments in `src/controllers/arena-controller.test.ts`
+- [x] T012 [P] [US1] Write deterministic ReAct tests with a fake tool-calling model for final answers, tool execution, logical LLM-call counts, and iteration exhaustion in `src/agents/react.test.ts`
+- [x] T013 [P] [US1] Write deterministic Plan-and-Execute tests with a fake structured-output model for planning, one-step execution, replanning, completion, eight-step cap, and iteration exhaustion in `src/agents/plan-and-execute.test.ts`
+- [x] T014 [P] [US1] Write CLI/controller tests for shared request propagation, strategy selection/defaults, positive iteration limits, and invalid arguments in `src/controllers/arena-controller.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [P] [US1] Implement the prebuilt LangGraph ReAct strategy, ordered tool/action/observation trace, callback-based logical LLM-call counting, monotonic latency, and graph safety limit in `src/agents/react.ts` (depends on T004, T009, T011, T012)
+- [x] T015 [P] [US1] Implement the prebuilt LangGraph ReAct strategy, ordered tool/action/observation trace, callback-based logical LLM-call counting, monotonic latency, and graph safety limit in `src/agents/react.ts` (depends on T004, T009, T011, T012)
 - [x] T016 [P] [US1] Implement the Plan-and-Execute StateGraph with Zod-validated structured plans, one tool per step, replanning after each step, eight-step maximum, callback metrics, and bounded graph execution in `src/agents/plan-and-execute.ts` (depends on T004, T009, T011, T013)
 - [x] T017 [US1] Implement Zod-validated CLI parsing, strategy selection, a fresh seeded memory store per strategy, result aggregation, and the executable entry point in `src/controllers/arena-controller.ts` and `src/arena.ts` (depends on T014, T015, T016)
 
@@ -73,11 +73,11 @@ and arguments.
 
 ### Tests for User Story 2
 
-- [ ] T018 [P] [US2] Write deterministic formatting tests for all six trace event variants, order preservation, action arguments, and secret/private-reasoning redaction in `src/views/trace.test.ts`
+- [x] T018 [P] [US2] Write deterministic formatting tests for all six trace event variants, order preservation, action arguments, and secret/private-reasoning redaction in `src/views/trace.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Implement the pure trace formatter and connect arena result rendering to it in `src/views/trace.ts` and `src/controllers/arena-controller.ts` (depends on T018, T017)
+- [x] T019 [US2] Implement the pure trace formatter and connect arena result rendering to it in `src/views/trace.ts` and `src/controllers/arena-controller.ts` (depends on T018, T017)
 
 **Checkpoint**: The arena prints an ordered human-readable trace for each
 strategy without logging API credentials or raw hidden reasoning.
@@ -94,17 +94,17 @@ and no deletion of unrelated records.
 
 ### Tests for User Story 3
 
-- [ ] T020 [P] [US3] Write Sequelize-model metadata tests for required fields, status/severity enums, service foreign keys, and model associations without opening a database connection in `src/models/models.test.ts`
-- [ ] T021 [P] [US3] Write seed tests proving stable fixture IDs are upserted, repeated seeding creates no duplicates, and unrelated store rows are untouched in `src/store/seed.test.ts`
-- [ ] T022 [P] [US3] Write adapter tests for alert filtering, incident creation/resolution, unknown IDs, and transaction rollback using injected Sequelize model doubles in `src/store/sequelize-store.test.ts`
+- [x] T020 [P] [US3] Write Sequelize-model metadata tests for required fields, status/severity enums, service foreign keys, and model associations without opening a database connection in `src/models/models.test.ts`
+- [x] T021 [P] [US3] Write seed tests proving stable fixture IDs are upserted, repeated seeding creates no duplicates, and unrelated store rows are untouched in `src/store/seed.test.ts`
+- [x] T022 [P] [US3] Write adapter tests for alert filtering, incident creation/resolution, unknown IDs, and transaction rollback using injected Sequelize model doubles in `src/store/sequelize-store.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T023 [P] [US3] Define typed Sequelize models and explicit foreign keys in `src/models/service.ts`, `src/models/alert.ts`, and `src/models/incident.ts`, preserving these constraints verbatim: Service `id` "Stable slug; primary/unique key", `name` "Required, non-empty"; Alert `id` "Stable fixture ID or generated ID; primary key", `serviceId` "Required reference to an existing service", `title` "Required, non-empty", `status` "`firing` or `resolved`", `severity` "`low`, `medium`, `high`, or `critical`", `triggeredAt` "Required", `resolvedAt` "Required for resolved alerts; null while firing"; Incident `id` "UUID", `title` "Required, non-empty", `serviceId` "Required reference to an existing service", `severity` "`low`, `medium`, `high`, or `critical`", `status` "`open` or `resolved`; new incidents start `open`", `createdAt` "Required", `resolvedAt` "Null while open; set on resolution" (depends on T002, T020)
-- [ ] T024 [US3] Implement the Sequelize/MySQL adapter for `OperationsStore`, including filtered alert reads and transactional incident state changes, in `src/store/sequelize-store.ts` (depends on T005, T022, T023)
-- [ ] T025 [US3] Implement an idempotent fixture seeder that upserts only stable service/alert IDs inside a transaction and never truncates unrelated rows in `src/store/seed.ts` (depends on T007, T021, T024)
-- [ ] T026 [US3] Add Zod-validated MySQL connection configuration from process environment and ensure the seed command closes the Sequelize connection on success or failure in `src/store/database.ts` and `src/store/seed.ts` (depends on T023, T025)
-- [x] T027 [US3] Execute the JSON seed workflow and verify five services plus six alerts split three firing/three resolved in `src/store/seed.ts` (JSON execution mode replaces MySQL in the current test setup)
+- [x] T023 [P] [US3] Define typed Sequelize models and explicit foreign keys in `src/models/service.ts`, `src/models/alert.ts`, and `src/models/incident.ts`, preserving these constraints verbatim: Service `id` "Stable slug; primary/unique key", `name` "Required, non-empty"; Alert `id` "Stable fixture ID or generated ID; primary key", `serviceId` "Required reference to an existing service", `title` "Required, non-empty", `status` "`firing` or `resolved`", `severity` "`low`, `medium`, `high`, or `critical`", `triggeredAt` "Required", `resolvedAt` "Required for resolved alerts; null while firing"; Incident `id` "UUID", `title` "Required, non-empty", `serviceId` "Required reference to an existing service", `severity` "`low`, `medium`, `high`, or `critical`", `status` "`open` or `resolved`; new incidents start `open`", `createdAt` "Required", `resolvedAt` "Null while open; set on resolution" (depends on T002, T020)
+- [x] T024 [US3] Implement the Sequelize/MySQL adapter for `OperationsStore`, including filtered alert reads and transactional incident state changes, in `src/store/sequelize-store.ts` (depends on T005, T022, T023)
+- [x] T025 [US3] Implement an idempotent fixture seeder that upserts only stable service/alert IDs inside a transaction and never truncates unrelated rows in `src/store/seed.ts` (depends on T007, T021, T024)
+- [x] T026 [US3] Add Zod-validated MySQL connection configuration from process environment and ensure the seed command closes the Sequelize connection on success or failure in `src/store/database.ts` and `src/store/seed.ts` (depends on T023, T025)
+- [x] T027 [US3] Execute `npm run seed` against a configured development database and verify five services plus six alerts split three firing/three resolved; record any missing database configuration instead of substituting a success result in `src/store/seed.ts` (depends on T026)
 
 **Checkpoint**: The persistent seed is repeatable and scoped to fixture rows;
 the memory-store and trace tests remain offline.
@@ -114,9 +114,9 @@ the memory-store and trace tests remain offline.
 **Purpose**: Verify the implementation against the documented usage and
 project quality gates.
 
-- [ ] T028 [P] Align the default model ID, environment-variable names, MySQL prerequisites, CLI options, and seed behavior in `specs/001-agent-reasoning-arena/quickstart.md`
+- [x] T028 [P] Align the default model ID, environment-variable names, MySQL prerequisites, CLI options, and seed behavior in `specs/001-agent-reasoning-arena/quickstart.md`
 - [x] T029 Run `npm run test` and `npm run typecheck`, resolve failures, and confirm the offline store/trace suites pass without credentials or network in `package.json` and `tsconfig.json`
-- [ ] T030 Run the documented arena and seed scenarios where their external prerequisites are available; record actual outcomes and limitations in `specs/001-agent-reasoning-arena/quickstart.md`
+- [x] T030 Run the documented arena and seed scenarios where their external prerequisites are available; record actual outcomes and limitations in `specs/001-agent-reasoning-arena/quickstart.md`
 
 ## Dependencies & Execution Order
 
@@ -232,3 +232,16 @@ contract is stable.
   its result must be reported honestly if that prerequisite is unavailable.
 - Never inspect `.env` files; use process environment configuration without
   adding dotenv.
+
+## Execution Results
+
+- The offline suite passes (22 tests), and `npm run typecheck` passes.
+- The arena smoke check correctly rejected missing `OPENROUTER_API_KEY` and
+  `OPENROUTER_MODEL`; it did not make a network request.
+- The seed smoke check correctly rejected missing MySQL environment values; no
+  database connection was attempted. The configured-database seed remains
+  unverified.
+- Sequelize requires `mysql2`, which is not installed. Adding it was attempted
+  through npm, but the corporate registry returned
+  `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. TLS validation was not disabled; use an
+  approved registry before running the persistent seed.

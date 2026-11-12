@@ -4,6 +4,8 @@
 
 - Node.js 22 LTS and npm dependencies installed.
 - For unit tests: no network or database is required.
+- For the MySQL seed: Sequelize's MySQL dialect requires the `mysql2` driver.
+  Install it through the package registry approved for your network.
 - For the seed command: a local development MySQL database and its connection
   settings (`MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`,
   `MYSQL_PASSWORD`) supplied through process environment variables.
@@ -13,6 +15,10 @@
 
 Do not print secrets or inspect `.env` files. Set values through the shell or
 the approved local secret manager.
+
+The project exposes the repeatable fixture command as `npm run seed`; it
+requires the MySQL environment variables above, creates missing model tables
+without dropping existing tables, and never resets unrelated rows.
 
 ## Offline validation
 
@@ -57,3 +63,13 @@ count, and latency. Each Plan-and-Execute plan has at most eight steps.
   limit: the CLI rejects it before any model call.
 - Run store/trace tests with the network disabled: they still pass.
 - Check that output contains no API key or raw hidden chain-of-thought.
+
+## Validation status
+
+The offline test suite and typecheck pass. Live arena and seed smoke checks
+were attempted but stopped at their validated configuration boundaries because
+the OpenRouter and MySQL environment variables are not configured in this
+workspace. The MySQL driver is also not currently installed; the corporate npm
+registry certificate prevented adding it. Do not disable TLS validation; use
+the approved registry or ask IT for the supported package source before
+running the persistent seed.

@@ -1,21 +1,72 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import type { OperationsService } from "../services/operations.js";
+import type { OperationsStore } from "../store/operations-store.js";
+import { OperationsService } from "../services/operations.js";
 
-export const listAlertsInputSchema = z.object({ status: z.enum(["firing", "resolved"]) });
-export const openIncidentInputSchema = z.object({ title: z.string().trim().min(1), service: z.string().trim().min(1), severity: z.enum(["low", "medium", "high", "critical"])});
-export const resolveIncidentInputSchema = z.object({ id: z.string().trim().min(1) });
+export const ListAlertsInputSchema = z
+  .object({
+    status: z.enum(["firing", "resolved", "all"]).default("firing"),
+  })
+  .strict();
 
-export function createOperationsTools(operations: OperationsService) {
-  return [
-    tool(async (input: z.infer<typeof listAlertsInputSchema>) => operations.listAlerts(input.status), {
-      name: "list_alerts", description: "List firing or resolved alerts", schema: listAlertsInputSchema,
-    }),
-    tool(async (input: z.infer<typeof openIncidentInputSchema>) => operations.openIncident(input), {
-      name: "open_incident", description: "Open an incident for an existing service", schema: openIncidentInputSchema,
-    }),
-    tool(async (input: z.infer<typeof resolveIncidentInputSchema>) => operations.resolveIncident(input.id), {
-      name: "resolve_incident", description: "Resolve an existing open incident", schema: resolveIncidentInputSchema,
-    }),
-  ];
+export const OpenIncidentInputSchema = z
+  .object({
+    title: z.string().trim().min(1),
+    service: z.string().trim().min(1),
+    severity: z.enum(["low", "medium", "high", "critical"]),
+  })
+  .strict();
+
+export const ResolveIncidentInputSchema = z
+  .object({
+    id: z.string().trim().min(1),
+  })
+  .strict();
+
+export function createOpsTools(store: OperationsStore) {
+  const operations = new OperationsService(store);
+
+  const listAlerts = tool(
+    async ({ status }) => JSON.stringify(await operations.listAlerts(status)),
+    {
+      name: "list_alerts",
+      description:
+        "Lista alertas de monitoramento por estado (firing, resolved ou all).",
+      schema: ListAlertsInputSchema,
+    },
+  );
+
+  const openIncident = tool(
+    async ({ title, service, severity }) =>
+      JSON.stringify(
+        await operations.openIncident({
+          title,
+          serviceId: service,
+          severity,
+        }),
+      ),
+    {
+      name: "open_incident",
+      description: "Abre um incidente para um serviço existente.",
+      schema: OpenIncidentInputSchema,
+    },
+  );
+
+  const resolveIncident = tool(
+    async ({ id }) =>
+      JSON.stringify(await operations.resolveIncident(id)),
+    {
+      name: "resolve_incident",
+      description: "Resolve um incidente aberto pelo identificador.",
+      schema: ResolveIncidentInputSchema,
+    },
+  );
+
+  return {
+    list_alerts: listAlerts,
+    open_incident: openIncident,
+    resolve_incident: resolveIncident,
+  };
 }
+
+export type OpsTools = ReturnType<typeof createOpsTools>;
