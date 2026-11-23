@@ -1,0 +1,81 @@
+{
+  "services": [
+    {
+      "id": "auth",
+      "name": "Authentication"
+    },
+    {
+      "id": "billing",
+      "name": "Billing"
+    },
+    {
+      "id": "checkout",
+      "name": "Checkout"
+    },
+    {
+      "id": "inventory",
+      "name": "Inventory"
+    },
+    {
+      "id": "notifications",
+      "name": "Notifications"
+    }
+  ],
+  "alerts": [
+    {
+      "id": "alert-auth-1",
+      "serviceId": "auth",
+      "title": "Elevated login failures",
+      "status": "firing",
+      "severity": "high",
+      "triggeredAt": "2026-11-22T09:00:00.000Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "alert-billing-1",
+      "serviceId": "billing",
+      "title": "Payment timeout increase",
+      "status": "firing",
+      "severity": "critical",
+      "triggeredAt": "2026-11-22T09:05:00.000Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "alert-checkout-1",
+      "serviceId": "checkout",
+      "title": "Checkout error rate",
+      "status": "firing",
+      "severity": "medium",
+      "triggeredAt": "2026-11-22T09:10:00.000Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "alert-inventory-1",
+      "serviceId": "inventory",
+      "title": "Low inventory sync",
+      "status": "resolved",
+      "severity": "low",
+      "triggeredAt": "2026-11-22T08:00:00.000Z",
+      "resolvedAt": "2026-11-22T08:30:00.000Z"
+    },
+    {
+      "id": "alert-notifications-1",
+      "serviceId": "notifications",
+      "title": "Delayed email delivery",
+      "status": "resolved",
+      "severity": "medium",
+      "triggeredAt": "2026-11-22T08:10:00.000Z",
+      "resolvedAt": "2026-11-22T08:45:00.000Z"
+    },
+    {
+      "id": "alert-auth-2",
+      "serviceId": "auth",
+      "title": "Intermittent token refresh",
+      "status": "resolved",
+      "severity": "high",
+      "triggeredAt": "2026-11-22T07:50:00.000Z",
+      "resolvedAt": "2026-11-22T08:20:00.000Z"
+    }
+  ],
+  "incidents": []
+}
