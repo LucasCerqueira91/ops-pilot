@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { runArenaController } from "./controllers/arena-controller.js";
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   try {
     await runArenaController();
   } catch (error) {

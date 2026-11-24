@@ -1,28 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { MemoryOperationsStore } from "./memory-store.js";
 
-const fixturePath = resolve(process.cwd(), "src/store/seed-data.json");
-const runtimePath = resolve(process.cwd(), "src/store/runtime-state.json");
-
-test("memory store loads the JSON fixture and exposes three firing alerts", () => {
-  const store = new MemoryOperationsStore(fixturePath);
-  assert.equal(store.listServices().length, 5);
-  assert.equal(store.listAlerts("firing").length, 3);
-  assert.equal(store.listAlerts("resolved").length, 3);
+test("memory store loads the seed data and filters alerts", async () => {
+  const store = new MemoryOperationsStore();
+  assert.equal((await store.listServices()).length, 5);
+  assert.equal((await store.listAlerts("firing")).length, 3);
+  assert.equal((await store.listAlerts("resolved")).length, 3);
 });
 
-test("memory store creates and resolves incidents in the runtime JSON", () => {
-  const fixture = readFileSync(fixturePath, "utf8");
-  writeFileSync(runtimePath, fixture, "utf8");
-  const store = new MemoryOperationsStore(runtimePath, () => new Date("2026-11-22T10:00:00.000Z"));
-  const incident = store.openIncident({ title: "API degradation", serviceId: "auth", severity: "high" });
+test("memory store persists incident changes through its callback", async () => {
+  const persistedStatuses: Array<string | undefined> = [];
+  const store = new MemoryOperationsStore({
+    clock: () => new Date("2026-11-22T10:00:00.000Z"),
+    createId: () => "00000000-0000-4000-8000-000000000022",
+    persist: async (data) => {
+      persistedStatuses.push(data.incidents[0]?.status);
+    },
+  });
+  const incident = await store.createIncident({
+    title: "API degradation",
+    serviceId: "payment-api",
+    severity: "high",
+  });
   assert.equal(incident.status, "open");
   assert.equal(incident.resolvedAt, null);
-  const resolved = store.resolveIncident(incident.id);
+  const resolved = await store.resolveIncident(incident.id);
   assert.equal(resolved.status, "resolved");
-  assert.equal(resolved.resolvedAt, "2026-11-22T10:00:00.000Z");
-  writeFileSync(runtimePath, fixture, "utf8");
+  assert.deepEqual(resolved.resolvedAt, new Date("2026-11-22T10:00:00.000Z"));
+  assert.deepEqual(persistedStatuses, ["open", "resolved"]);
 });
