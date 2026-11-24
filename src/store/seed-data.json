@@ -82,5 +82,33 @@
       "resolvedAt": "2026-01-01T01:15:00.000Z"
     }
   ],
-  "incidents": []
+  "incidents": [
+    {
+      "id": "b27dcf41-b927-48f4-94d5-763b555bb8f4",
+      "title": "High error rate on /checkout",
+      "serviceId": "payment-api",
+      "severity": "high",
+      "status": "resolved",
+      "createdAt": "2026-11-13T21:09:21.359Z",
+      "resolvedAt": "2026-11-13T21:13:12.526Z"
+    },
+    {
+      "id": "7e8914fd-d3a5-41fd-92c7-82477edbde3b",
+      "title": "Upstream retry saturation",
+      "serviceId": "payment-api",
+      "severity": "high",
+      "status": "open",
+      "createdAt": "2026-11-13T21:10:40.645Z",
+      "resolvedAt": null
+    },
+    {
+      "id": "7e5d396a-2577-48a5-a3b2-c8a7b5346d18",
+      "title": "Catalog cache miss spike",
+      "serviceId": "catalog",
+      "severity": "high",
+      "status": "open",
+      "createdAt": "2026-11-13T21:11:55.432Z",
+      "resolvedAt": null
+    }
+  ]
 }
