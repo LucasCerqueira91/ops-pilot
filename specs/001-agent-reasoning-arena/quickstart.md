@@ -66,8 +66,8 @@ Plan-and-Execute remains available and executes at most eight tool steps total.
 
 ## Validation status
 
-`npm run seed` initialized/validated the JSON database (5 services, 6 alerts,
-0 incidents) and reported that existing data was preserved. The command
+The latest `npm run seed` validated the JSON database (5 services, 6 alerts,
+3 incidents) and reported that existing data was preserved. The command
 `npm run arena -- "quantos alertas críticos estão disparando" --strategies react`
 loaded the local configuration and returned:
 
@@ -77,5 +77,5 @@ Existem 2 alertas críticos disparando:
 - [alert-003] order-service | critical | DB connection pool exhausted
 ```
 
-All 27 tests and `npm run typecheck` passed. An empty final provider response
+All 29 tests and `npm run typecheck` passed. An empty final provider response
 is reported as an explicit error rather than a blank successful answer.
